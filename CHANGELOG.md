@@ -4,6 +4,24 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.1] - 2025-10-21
+
+### Added
+- Selection block: Provide a scoped CSS override so titles are not truncated with ellipsis inside tiles; long titles now wrap naturally.
+
+### Changed
+- Theme integration (foundation_tsukuba2025): Standardized sort label to "Created" for consistent translation in Japanese.
+- Theme independence: Ensure the groups layout template (`omeka/site/item-set/browse-groups`) is selected during dispatch whenever `groups_route=true` or `layout=groups` is present. This lets the module work without theme support while still allowing theme overrides.
+
+### 日本語
+
+#### 追加
+- Selection ブロック: タイル内のタイトルが省略記号（…）で切れないよう、ブロックスコープでオーバーライドする CSS を追加。長いタイトルは自然に折り返します。
+
+#### 変更
+- テーマ連携（foundation_tsukuba2025）: ソートラベルを「Created」に統一し、日本語翻訳の整合性を改善。
+- テーマ非依存性: `groups_route=true` または `layout=groups` のとき、ディスパッチ時に `omeka/site/item-set/browse-groups` テンプレートを強制選択。テーマが未対応でも本モジュール単体で機能し、テーマ側の上書きも可能です。
+
 ## [0.2.0] - 2025-10-20
 
 ### Added
@@ -69,3 +87,4 @@ This project adheres to Keep a Changelog and Semantic Versioning.
 
 [0.2.0]: https://github.com/wakitosh/ItemSetGroup/releases/tag/v0.2.0
 [0.1.0]: https://github.com/wakitosh/ItemSetGroup/releases/tag/v0.1.0
+[0.2.1]: https://github.com/wakitosh/ItemSetGroup/releases/tag/v0.2.1
