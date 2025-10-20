@@ -72,6 +72,22 @@ class Selection extends AbstractBlockLayout {
     }
     $form->add($heading);
 
+    // Localized heading map (hidden JSON).
+    $headingI18n = new Hidden('o:block[__blockIndex__][o:data][heading_i18n]');
+    if ($block) {
+      $hv = $block->dataValue('heading_i18n', []);
+      if (is_array($hv)) {
+        $headingI18n->setValue(json_encode($hv, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+      }
+      elseif (is_string($hv) && $hv !== '') {
+        $headingI18n->setValue($hv);
+      }
+      else {
+        $headingI18n->setValue('');
+      }
+    }
+    $form->add($headingI18n);
+
     $desc = new HtmlTextarea('o:block[__blockIndex__][o:data][description]');
     $desc->setLabel($view->translate('Description (HTML)'));
     $desc->setAttributes(['rows' => 5]);
@@ -79,6 +95,22 @@ class Selection extends AbstractBlockLayout {
       $desc->setValue((string) $block->dataValue('description', ''));
     }
     $form->add($desc);
+
+    // Localized description map (hidden JSON).
+    $descI18n = new Hidden('o:block[__blockIndex__][o:data][description_i18n]');
+    if ($block) {
+      $dv = $block->dataValue('description_i18n', []);
+      if (is_array($dv)) {
+        $descI18n->setValue(json_encode($dv, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+      }
+      elseif (is_string($dv) && $dv !== '') {
+        $descI18n->setValue($dv);
+      }
+      else {
+        $descI18n->setValue('');
+      }
+    }
+    $form->add($descI18n);
 
     $showTitle = new Checkbox('o:block[__blockIndex__][o:data][show_title]');
     $showTitle->setLabel($view->translate('Show title under thumbnail'));
@@ -245,6 +277,58 @@ class Selection extends AbstractBlockLayout {
       ]);
       $form->add($clearChildBtn);
     }
+
+    // i18n editor UI (admin only) for heading/description.
+    $view->headScript()->appendScript(<<<'JS'
+      (function($){
+        if (window.ItemSetGroupI18nInit) return; window.ItemSetGroupI18nInit = true;
+        function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/\"/g,'&quot;'); }
+        function rowHtml(lang, val, isHtml){
+          var v = String(val||'');
+          var input = isHtml
+            ? '<textarea class="ts-i18n-value" rows="3">'+ v.replace(/</g,'&lt;') +'</textarea>'
+            : '<input type="text" class="ts-i18n-value" value="'+ esc(v) +'" />';
+          return '<div class="ts-i18n-row">'
+            + '<input type="text" class="ts-i18n-lang" placeholder="ja" value="'+ esc(lang||'') +'" /> '
+            + input + ' '
+            + '<button type="button" class="button ts-i18n-remove">×</button>'
+            + '</div>';
+        }
+        function serialize($wrap){
+          var out = {};
+          $wrap.find('.ts-i18n-row').each(function(){
+            var lang = $.trim($(this).find('.ts-i18n-lang').val()||'');
+            var val = $(this).find('.ts-i18n-value').val()||'';
+            if (lang) out[lang] = String(val);
+          });
+          return JSON.stringify(out);
+        }
+        function initOne($container){
+          var isHtml = $container.is('.ts-i18n-html');
+          var target = $container.data('target');
+          if (!target) return;
+          var $fieldset = $container.closest('fieldset.ts-global, fieldset.ts-fieldset');
+          var $hidden = $fieldset.find('input[name$="['+target+']"]').first();
+          if (!$hidden.length) return;
+          var cur = {};
+          try { var v = $hidden.val(); if (v) { cur = JSON.parse(v); } } catch(e) { cur = {}; }
+          var $rows = $container.find('.ts-i18n-rows');
+          $rows.empty();
+          var keys = Object.keys(cur);
+          if (keys.length) {
+            keys.forEach(function(k){ $rows.append($(rowHtml(k, cur[k], isHtml))); });
+          } else {
+            var d = String($container.data('default-lang')||'');
+            if (d) { $rows.append($(rowHtml(d, '', isHtml))); }
+          }
+          $container.off('click.tsI18nAdd').on('click.tsI18nAdd', '.ts-i18n-add', function(e){ e.preventDefault(); $rows.append($(rowHtml('', '', isHtml))); $hidden.val(serialize($container)); return false; });
+          $container.off('click.tsI18nRemove').on('click.tsI18nRemove', '.ts-i18n-remove', function(e){ e.preventDefault(); $(this).closest('.ts-i18n-row').remove(); $hidden.val(serialize($container)); return false; });
+          $container.off('change.tsI18n').on('change.tsI18n', '.ts-i18n-lang, .ts-i18n-value', function(){ $hidden.val(serialize($container)); });
+          $hidden.val(serialize($container));
+        }
+        $(function(){ $('.ts-i18n').each(function(){ initOne($(this)); }); });
+      })(jQuery);
+    JS);
 
     $view->headScript()->appendScript(<<<'JS'
       (function($){
@@ -484,10 +568,18 @@ class Selection extends AbstractBlockLayout {
     $html = '';
     $translate = $view->plugin('translate');
     $escape = $view->plugin('escapeHtml');
-    $html .= '<fieldset class="ts-fieldset ts-global">'
+    $html .= '<fieldset class="ts-fieldset ts-global" data-isg-form="1">'
       . '<legend>' . $escape($translate('Global settings')) . '</legend>'
       . '<div class="ts-group">' . $view->formRow($heading) . '</div>'
+      . '<div class="ts-group">'
+        . '<label>' . $escape($translate('Title (localized)')) . '</label>'
+        . '<div class="ts-i18n" data-target="heading_i18n" data-default-lang="' . $escape((string) $view->lang()) . '">' . $view->formRow($headingI18n) . '<div class="ts-i18n-rows"></div><button type="button" class="button ts-i18n-add">' . $escape($translate('Add language')) . '</button></div>'
+      . '</div>'
       . '<div class="ts-group">' . $view->formRow($desc) . '</div>'
+      . '<div class="ts-group">'
+        . '<label>' . $escape($translate('Description (localized, HTML)')) . '</label>'
+        . '<div class="ts-i18n ts-i18n-html" data-target="description_i18n" data-default-lang="' . $escape((string) $view->lang()) . '">' . $view->formRow($descI18n) . '<div class="ts-i18n-rows"></div><button type="button" class="button ts-i18n-add">' . $escape($translate('Add language')) . '</button></div>'
+      . '</div>'
       . '<div class="ts-group">' . $view->formRow($showTitle) . '</div>'
       . '<div class="ts-group">' . $view->formRow($showDesc) . '</div>'
       . '<div class="ts-group">' . $view->formRow($moreUrl) . '</div>'
@@ -531,6 +623,33 @@ class Selection extends AbstractBlockLayout {
     $data['description'] = isset($data['description']) && is_string($data['description'])
       ? $data['description']
       : '';
+    // Localized heading/description maps.
+    $normalizeMap = function ($v): array {
+      $out = [];
+      if (is_string($v) && $v !== '') {
+        try {
+          $v = json_decode($v, TRUE);
+        }
+        catch (\Throwable $e) {
+          $v = [];
+        }
+      }
+      if (is_array($v)) {
+        foreach ($v as $k => $val) {
+          if (!is_string($k) || !is_string($val)) {
+            continue;
+          }
+          $kk = trim($k);
+          if ($kk === '') {
+            continue;
+          }
+          $out[$kk] = $val;
+        }
+      }
+      return $out;
+    };
+    $data['heading_i18n'] = $normalizeMap($data['heading_i18n'] ?? []);
+    $data['description_i18n'] = $normalizeMap($data['description_i18n'] ?? []);
     $data['more_url'] = isset($data['more_url']) && is_string($data['more_url'])
       ? trim($data['more_url'])
       : '';
@@ -746,9 +865,44 @@ class Selection extends AbstractBlockLayout {
       $moreText = $isJa ? 'もっと見る' : (string) $translate('See more');
     }
 
+    // Resolve localized heading/description with site language,
+    // fallback to non-i18n values.
+    $headingData = $block->dataValue('heading_i18n', []);
+    if (is_string($headingData) && $headingData !== '') {
+      try {
+        $headingData = json_decode($headingData, TRUE);
+      }
+      catch (\Throwable $e) {
+        $headingData = [];
+      }
+    }
+    $descData = $block->dataValue('description_i18n', []);
+    if (is_string($descData) && $descData !== '') {
+      try {
+        $descData = json_decode($descData, TRUE);
+      }
+      catch (\Throwable $e) {
+        $descData = [];
+      }
+    }
+    $headingOut = '';
+    if (is_array($headingData) && isset($headingData[$lang]) && is_string($headingData[$lang])) {
+      $headingOut = (string) $headingData[$lang];
+    }
+    if ($headingOut === '') {
+      $headingOut = (string) $block->dataValue('heading', '');
+    }
+    $descOut = '';
+    if (is_array($descData) && isset($descData[$lang]) && is_string($descData[$lang])) {
+      $descOut = (string) $descData[$lang];
+    }
+    if ($descOut === '') {
+      $descOut = (string) $block->dataValue('description', '');
+    }
+
     return $view->partial('common/block-layout/item-set-group-selection', [
-      'heading' => (string) $block->dataValue('heading', ''),
-      'description' => (string) $block->dataValue('description', ''),
+      'heading' => $headingOut,
+      'description' => $descOut,
       'moreUrl' => $moreUrl,
       'moreText' => $moreText,
       'showTitle' => $showTitle,
