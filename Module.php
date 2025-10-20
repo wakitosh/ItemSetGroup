@@ -4,6 +4,7 @@ namespace ItemSetGroup;
 
 use Laminas\Mvc\MvcEvent;
 use Laminas\Validator\ValidatorChain;
+use Laminas\View\Model\ViewModel;
 use Omeka\Api\Adapter\ItemSetAdapter;
 use Omeka\Form\ResourceForm;
 use Omeka\Module\AbstractModule;
@@ -697,6 +698,40 @@ EOT;
           // Ignore logging failures.
         }
       }, 100);
+
+      // When routed via groups_route to Site ItemSet browse, force an
+      // alternate template that we provide in this module. A theme can
+      // still override it by providing the same template path.
+      $shared->attach('Omeka\\Controller\\Site\\ItemSet', MvcEvent::EVENT_DISPATCH, function (MvcEvent $ev) {
+        try {
+          $rm = $ev->getRouteMatch();
+          if (!$rm) {
+            return;
+          }
+          $action = (string) $rm->getParam('action');
+          if ($action !== 'browse') {
+            return;
+          }
+          $flag = (bool) $rm->getParam('groups_route');
+          if (!$flag) {
+            // Fallback: also honor explicit layout=groups query.
+            $req = $ev->getRequest();
+            if (method_exists($req, 'getQuery')) {
+              $flag = ((string) $req->getQuery('layout', '')) === 'groups';
+            }
+          }
+          if (!$flag) {
+            return;
+          }
+          $result = $ev->getResult();
+          if ($result instanceof ViewModel) {
+            $result->setTemplate('omeka/site/item-set/browse-groups');
+          }
+        }
+        catch (\Throwable $e) {
+          // Ignore template override failures.
+        }
+      }, -100);
     }
     catch (\Throwable $ignore) {
       // Ignore logging setup failures.
