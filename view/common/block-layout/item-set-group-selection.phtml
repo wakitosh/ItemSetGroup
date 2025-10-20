@@ -1,0 +1,75 @@
+<?php
+$escape = $this->plugin('escapeHtml');
+$translate = $this->plugin('translate');
+$hyperlink = $this->plugin('hyperlink');
+?>
+<div class="ts-preview-block">
+
+  <?php if (!empty($this->heading)): ?>
+  <div class="ts-preview-header">
+    <h3 class="ts-preview-title"><?php echo $escape($this->heading); ?></h3>
+  </div>
+  <?php endif; ?>
+
+  <?php if (!empty($this->description)): ?>
+  <div class="ts-preview-description">
+    <?php echo $this->description; ?>
+  </div>
+  <?php endif; ?>
+
+  <ul class="resources resource-grid ts-preview-grid">
+    <?php foreach ($this->items as $it): ?>
+      <?php
+        $res = $it['resource'] ?? null;
+        $thumb = (string) ($it['thumb'] ?? '');
+        $title = (string) ($it['title'] ?? '');
+        $desc = (string) ($it['desc'] ?? '');
+        $child = (string) ($it['child'] ?? '');
+        $childUrl = (string) ($it['childUrl'] ?? '');
+        $url = isset($it['url']) ? (string) $it['url'] : '';
+        $parts = [];
+        if ($thumb) {
+          $attrs = 'class="thumbnail" loading="lazy" decoding="async" alt="" onload="this.parentNode.classList.add(\'is-loaded\')" onerror="this.parentNode.classList.add(\'is-loaded\')"';
+          $parts[] = '<span class="thumb-frame"><img src="' . $escape($thumb) . '" ' . $attrs . ' /></span>';
+        }
+        if (!empty($this->showTitle) && $title !== '') {
+          $parts[] = '<span class="resource-name">' . $escape($title) . '</span>';
+        }
+        if (!$parts) {
+          $blank = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+          $attrs = 'class="thumbnail" loading="lazy" decoding="async" alt="" onload="this.parentNode.classList.add(\'is-loaded\')" onerror="this.parentNode.classList.add(\'is-loaded\')"';
+          $parts[] = '<span class="thumb-frame"><img src="' . $blank . '" ' . $attrs . ' /></span>';
+        }
+        $linkContent = implode('', $parts);
+      ?>
+      <li class="resource ts-resource">
+        <div class="resource-meta ts-resource-meta">
+          <?php if ($res): ?>
+            <?php if ($url): ?>
+              <?php echo $hyperlink->raw($linkContent, $url, ['class' => 'resource-link']); ?>
+            <?php else: ?>
+              <?php echo $res->linkRaw($linkContent, null, ['class' => 'resource-link']); ?>
+            <?php endif; ?>
+          <?php else: ?>
+            <span class="resource-link"><?php echo $linkContent; ?></span>
+          <?php endif; ?>
+          <?php if ($child !== ''): ?>
+            <div class="ts-representative-item">
+              <?php echo $this->hyperlink($child, $childUrl ?: '#', ['class' => 'ts-representative-item-link']); ?>
+            </div>
+          <?php endif; ?>
+          <?php if (!empty($this->showDesc) && $desc !== ''): ?>
+            <div class="description"><?php echo $escape($desc); ?></div>
+          <?php endif; ?>
+        </div>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+
+  <?php if (!empty($this->moreUrl) && !empty($this->moreText)): ?>
+    <div class="ts-preview-footer">
+      <?php echo $this->hyperlink($this->moreText, $this->moreUrl, ['class' => 'ts-more-link']); ?>
+    </div>
+  <?php endif; ?>
+
+</div>

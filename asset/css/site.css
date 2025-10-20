@@ -1,0 +1,40 @@
+/* Front-end styles for ItemSetGroup block */
+.ts-preview-header {
+    margin-bottom: 0.5rem
+}
+
+.ts-preview-title {
+    margin: 0 0 20px 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-align: center
+}
+
+.ts-preview-description {
+    margin-bottom: 0.75rem
+}
+
+.ts-representative-item {
+    font-size: .92em;
+    margin-top: 4px;
+    text-align: center
+}
+
+.ts-preview-footer {
+    margin-top: .75rem;
+    text-align: left
+}
+
+.ts-more-link {
+    display: inline-block
+}
+
+.resource-link .resource-name {
+    display: block;
+    text-align: center
+}
+
+.ts-preview-block .ts-resource .ts-resource-meta {
+    margin-left: auto;
+    margin-right: auto
+}

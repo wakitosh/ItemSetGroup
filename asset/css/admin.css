@@ -1,0 +1,20 @@
+/* Admin styles for ItemSetGroup block form */
+.ts-fieldset {
+    border: 1px solid #dfdfdf;
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 2px
+}
+
+.ts-fieldset legend {
+    font-weight: 600;
+    padding: 0 6px
+}
+
+.ts-group {
+    margin-bottom: 18px
+}
+
+.ts-entry .thematic-select-child-item {
+    margin-right: 6px
+}
