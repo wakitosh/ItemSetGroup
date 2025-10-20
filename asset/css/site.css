@@ -19,6 +19,7 @@
     margin: 4px auto;
     text-align: center;
     max-width: 260px;
+    line-height: 1.4;
 }
 
 .ts-preview-footer {
