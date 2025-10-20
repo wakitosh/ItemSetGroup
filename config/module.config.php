@@ -13,10 +13,12 @@ use ItemSetGroup\View\Helper\ItemSetPrimaryThumbFactory;
 return [
   'acl' => [
     'resources' => [
-      'ItemSetGroup\\Controller\\GroupsController' => 'Controllers',
+      // Treat as a site controller so public routes work without auth.
+      'ItemSetGroup\\Controller\\GroupsController' => 'Omeka\\Controller\\Site',
     ],
     'allow' => [
-      [NULL, 'ItemSetGroup\\Controller\\GroupsController', ['redirect']],
+      // Allow anonymous/guest users to access the redirect action.
+      ['guest', 'ItemSetGroup\\Controller\\GroupsController', ['redirect']],
     ],
   ],
   'view_manager' => [
