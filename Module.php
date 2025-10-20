@@ -676,6 +676,31 @@ EOT;
         // phpcs:enable
       }
     }, 50);
+
+    // Minimal route match logging for ItemSetGroup only (to verify routing).
+    try {
+      $logger = $services->has('Omeka\\Logger') ? $services->get('Omeka\\Logger') : NULL;
+      $eventManager->attach(MvcEvent::EVENT_ROUTE, function (MvcEvent $ev) use ($logger) {
+        try {
+          $match = $ev->getRouteMatch();
+          if (!$match) {
+            return;
+          }
+          $name = (string) $match->getMatchedRouteName();
+          if (strpos($name, 'item-set-group') !== FALSE) {
+            if ($logger && method_exists($logger, 'info')) {
+              $logger->info('ItemSetGroup route matched: ' . $name);
+            }
+          }
+        }
+        catch (\Throwable $ignore) {
+          // Ignore logging failures.
+        }
+      }, 100);
+    }
+    catch (\Throwable $ignore) {
+      // Ignore logging setup failures.
+    }
   }
 
   /**

@@ -13,12 +13,12 @@ use ItemSetGroup\View\Helper\ItemSetPrimaryThumbFactory;
 return [
   'acl' => [
     'resources' => [
-      // Treat as a site controller so public routes work without auth.
-      'ItemSetGroup\\Controller\\GroupsController' => 'Omeka\\Controller\\Site',
+      // Register controller under generic Controllers parent.
+      'ItemSetGroup\\Controller\\GroupsController' => 'Controllers',
     ],
     'allow' => [
-      // Allow anonymous/guest users to access the redirect action.
-      ['guest', 'ItemSetGroup\\Controller\\GroupsController', ['redirect']],
+    // Allow any role (including anonymous) to access the redirect action.
+    [NULL, 'ItemSetGroup\\Controller\\GroupsController', ['redirect']],
     ],
   ],
   'view_manager' => [
@@ -35,6 +35,7 @@ return [
     'routes' => [
       'site-item-set-group' => [
         'type' => 'Segment',
+        'priority' => 10000,
         'options' => [
           'route' => '/s/:site-slug/item-set-group[/:parent]',
           'constraints' => [
@@ -43,13 +44,18 @@ return [
           ],
           'defaults' => [
             '__SITE__' => TRUE,
-            'controller' => 'ItemSetGroup\\Controller\\GroupsController',
-            'action' => 'redirect',
+            // Bypass our controller for site route to avoid ACL issues.
+            // Directly dispatch to Site ItemSet browse.
+            // Set groups layout flag via route param to trigger theme.
+            'controller' => 'Omeka\\Controller\\Site\\ItemSet',
+            'action' => 'browse',
+            'groups_route' => TRUE,
           ],
         ],
       ],
       'default-item-set-group' => [
         'type' => 'Segment',
+        'priority' => 10000,
         'options' => [
           'route' => '/item-set-group[/:parent]',
           'constraints' => [
@@ -57,8 +63,10 @@ return [
           ],
           'defaults' => [
             '__SITE__' => TRUE,
-            'controller' => 'ItemSetGroup\\Controller\\GroupsController',
-            'action' => 'redirect',
+            // Bypass our controller even for default route.
+            'controller' => 'Omeka\\Controller\\Site\\ItemSet',
+            'action' => 'browse',
+            'groups_route' => TRUE,
           ],
         ],
       ],
