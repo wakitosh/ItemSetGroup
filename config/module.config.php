@@ -33,6 +33,30 @@ return [
   ],
   'router' => [
     'routes' => [
+      // Ensure matching under the core 'site' route to avoid being captured by
+      // the generic '/s/:site-slug/:controller/:id' route. This child route
+      // guarantees that '/s/{slug}/item-set-group[/:parent]' dispatches to the
+      // Site ItemSet browse with the groups flag.
+      'site' => [
+        'child_routes' => [
+          'item-set-group' => [
+            'type' => 'Segment',
+            'priority' => 10000,
+            'options' => [
+              'route' => '/item-set-group[/:parent]',
+              'constraints' => [
+                'parent' => '[0-9]+' ,
+              ],
+              'defaults' => [
+                // Site context inherited from parent 'site' route.
+                'controller' => 'Omeka\\Controller\\Site\\ItemSet',
+                'action' => 'browse',
+                'groups_route' => TRUE,
+              ],
+            ],
+          ],
+        ],
+      ],
       'site-item-set-group' => [
         'type' => 'Segment',
         'priority' => 10000,
