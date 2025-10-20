@@ -146,7 +146,7 @@ class Module extends AbstractModule {
             'item_set_id' => $resource->id(),
             'per_page' => 200,
             'page' => 1,
-            'sort_by' => 'dcterms:title',
+            'sort_by' => 'id',
             'sort_order' => 'asc',
           ] : [],
           'option_text_callback' => function ($rep) {
@@ -472,7 +472,12 @@ class Module extends AbstractModule {
             'label' => '代表アイテム (サムネイル元)',
             'resource_value_options' => [
               'resource' => 'items',
-              'query' => $resource ? ['item_set_id' => $resource->id(), 'per_page' => 200] : [],
+              'query' => $resource ? [
+                'item_set_id' => $resource->id(),
+                'per_page' => 200,
+                'sort_by' => 'id',
+                'sort_order' => 'asc',
+              ] : [],
               'option_text_callback' => function ($rep) {
                 try {
                   $t = method_exists($rep, 'displayTitle') ? $rep->displayTitle() : ('Item ' . $rep->id());
