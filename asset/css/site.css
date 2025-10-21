@@ -65,8 +65,8 @@
 
 /* Child item title (representative item): add leading icon */
 .ts-preview-block .ts-representative-item-link {
-    display: inline-flex;
-    align-items: flex-start;
+    /*    display: inline-flex;*/
+    /*    align-items: flex-start;*/
     /* align icon to top so it stays at the first line */
     gap: .25em;
 }
@@ -77,6 +77,8 @@
     min-width: 1.25em;
     min-height: 1.25em;
     flex-shrink: 0;
+    vertical-align: top;
+    margin-right: 4px;
 }
 
 .ts-preview-block .ts-representative-item-link .ts-icon circle,
