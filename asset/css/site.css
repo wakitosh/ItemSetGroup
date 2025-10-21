@@ -47,6 +47,7 @@
     overflow: visible !important;
     text-overflow: clip !important;
     display: block !important;
+    text-align: center !important;
     line-clamp: unset !important;
     -webkit-line-clamp: unset !important;
     -webkit-box-orient: initial !important;
@@ -60,4 +61,25 @@
 .ts-preview-block .description {
     font-size: 0.9em !important;
     margin: 4px auto !important;
+}
+
+/* Child item title (representative item): add leading icon */
+.ts-preview-block .ts-representative-item-link {
+    display: inline-flex;
+    align-items: flex-start;
+    /* align icon to top so it stays at the first line */
+    gap: .25em;
+}
+
+.ts-preview-block .ts-representative-item-link .ts-icon {
+    width: 1.25em;
+    height: 1.25em;
+    min-width: 1.25em;
+    min-height: 1.25em;
+    flex-shrink: 0;
+}
+
+.ts-preview-block .ts-representative-item-link .ts-icon circle,
+.ts-preview-block .ts-representative-item-link .ts-icon polyline {
+    stroke: currentColor;
 }
