@@ -531,13 +531,74 @@ class Selection extends AbstractBlockLayout {
             });
           } catch(ex) { /* ignore */ }
         });
+
+        // Accordion: toggle each Selection section open/closed and persist state per page/block.
+        $(function(){
+          var $form = $('[data-isg-form="1"]');
+          var pageId = String($form.data('isgPageId') || '0');
+          var blockId = String($form.data('isgBlockId') || '0');
+          var storageKey = 'isg-admin-acc:page-' + pageId + ':block-' + blockId;
+
+          function loadState(){
+            try {
+              var raw = localStorage.getItem(storageKey);
+              return raw ? JSON.parse(raw) : {};
+            } catch(e){ return {}; }
+          }
+          function saveState(state){
+            try { localStorage.setItem(storageKey, JSON.stringify(state||{})); } catch(e){}
+          }
+
+          // Restore saved state.
+          var state = loadState();
+          $('.isg-accordion[data-acc-index]').each(function(){
+            var $fs = $(this);
+            var idx = String($fs.data('accIndex'));
+            if (state.hasOwnProperty(idx)) {
+              var shouldOpen = !!state[idx];
+              $fs.toggleClass('isg-open', shouldOpen).toggleClass('isg-closed', !shouldOpen);
+              $fs.find('> legend .isg-acc-toggle').attr('aria-expanded', String(shouldOpen));
+            }
+          });
+
+          // Delegate click and persist.
+          $(document).on('click', '.isg-acc-toggle', function(){
+            var $btn = $(this);
+            var $fs = $btn.closest('.isg-accordion');
+            var open = $fs.hasClass('isg-open');
+            var next = !open;
+            $fs.toggleClass('isg-open', next).toggleClass('isg-closed', !next);
+            $btn.attr('aria-expanded', String(next));
+            var idx = String($fs.data('accIndex'));
+            var st = loadState();
+            st[idx] = next;
+            saveState(st);
+          });
+
+          function setAll(open){
+            var st = loadState();
+            $('.isg-accordion[data-acc-index]').each(function(){
+              var $fs = $(this);
+              var idx = String($fs.data('accIndex'));
+              $fs.toggleClass('isg-open', open).toggleClass('isg-closed', !open);
+              $fs.find('> legend .isg-acc-toggle').attr('aria-expanded', String(open));
+              st[idx] = !!open;
+            });
+            saveState(st);
+          }
+
+          $(document).on('click', '.isg-acc-open-all', function(e){ e.preventDefault(); setAll(true); });
+          $(document).on('click', '.isg-acc-close-all', function(e){ e.preventDefault(); setAll(false); });
+        });
   })(jQuery);
 JS);
 
     $html = '';
     $translate = $view->plugin('translate');
     $escape = $view->plugin('escapeHtml');
-    $html .= '<fieldset class="ts-fieldset ts-global" data-isg-form="1">'
+    $html .= '<fieldset class="ts-fieldset ts-global" data-isg-form="1"'
+      . ' data-isg-page-id="' . (int) ($page ? $page->id() : 0) . '"'
+      . ' data-isg-block-id="' . (int) ($block ? $block->id() : 0) . '">'
       . '<legend>' . $escape($translate('Global settings')) . '</legend>'
       . '<div class="ts-group">' . $view->formRow($heading) . '</div>'
       . '<div class="ts-group">' . $view->formRow($desc) . '</div>'
@@ -548,9 +609,22 @@ JS);
       . '<div class="ts-group">' . $view->formRow($descMax) . '</div>'
       . '</fieldset>';
 
+    // Accordion global controls: Open all / Close all.
+    $html .= '<div class="ts-acc-controls">'
+      . '<button type="button" class="button isg-acc-open-all">' . $escape($translate('Open all')) . '</button> '
+      . '<button type="button" class="button isg-acc-close-all">' . $escape($translate('Close all')) . '</button>'
+      . '</div>';
+
     for ($i = 0; $i < $max; $i++) {
-      $html .= '<fieldset class="ts-fieldset ts-entry">'
-        . '<legend>' . $escape(sprintf($translate('Selection %d'), $i + 1)) . '</legend>'
+      $isOpen = ($i === 0);
+      $legendText = $escape(sprintf($translate('Selection %d'), $i + 1));
+      $panelId = 'isg-acc-panel-__blockIndex__-' . $i;
+      $headerId = 'isg-acc-header-__blockIndex__-' . $i;
+      $html .= '<fieldset class="ts-fieldset ts-entry isg-accordion ' . ($isOpen ? 'isg-open' : 'isg-closed') . '" data-isg-acc="1" data-acc-index="' . $i . '">'
+        . '<legend>'
+        . '<button type="button" class="isg-acc-toggle" aria-expanded="' . ($isOpen ? 'true' : 'false') . '" aria-controls="' . $panelId . '" id="' . $headerId . '">' . $legendText . '</button>'
+        . '</legend>'
+        . '<div class="isg-acc-panel" id="' . $panelId . '" role="region" aria-labelledby="' . $headerId . '">'
         . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][item_set_id]')) . '</div>'
         . '<div class="ts-group">'
           . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][child_item_title]')) . ' '
@@ -562,6 +636,7 @@ JS);
         . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][child_item_title_html]')) . '</div>'
         . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][thumb_asset]')) . '</div>'
         . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][thumb_url]')) . '</div>'
+        . '</div>'
         . '</fieldset>';
     }
 

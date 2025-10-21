@@ -4,6 +4,24 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.3] - 2025-10-21
+
+### Added
+- Admin UX: Each "Selection X" section in the Selection block form is now collapsible (accordion).
+  - Default: Selection 1 is open; all others are closed.
+  - Click the legend button to toggle. Keyboard accessible (button element, updates aria-expanded).
+  - Persist open/closed state per page and block via localStorage; restores on next visit.
+  - Global controls: "Open all" / "Close all" buttons to expand/collapse all sections at once (also persisted).
+
+### 日本語
+
+#### 追加
+- 管理UI: Selection ブロックの「Selection X」セクションをアコーディオン化し、個別に開閉できるようにしました。
+  - 既定では「Selection 1」のみ開、2以降は閉。
+  - 見出しのボタンをクリック（またはキーボード操作）で開閉できます（aria-expanded を更新）。
+  - ページ/ブロック単位で開閉状態を localStorage に保存し、次回表示時に復元します。
+  - 「すべて開く」「すべて閉じる」ボタンを追加し、一括で開閉できます（保存も反映）。
+
 ## [0.2.2] - 2025-10-21
 
 ### Added

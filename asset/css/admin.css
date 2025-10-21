@@ -18,3 +18,48 @@
 .ts-entry .thematic-select-child-item {
     margin-right: 6px
 }
+
+/* Accordion */
+.isg-accordion legend {
+    padding: 0;
+}
+
+.isg-acc-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    padding: 0 6px;
+    cursor: pointer;
+}
+
+.isg-acc-toggle::before {
+    content: '\25BC';
+    /* down triangle */
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform .15s ease;
+}
+
+.isg-accordion.isg-closed .isg-acc-toggle::before {
+    transform: rotate(-90deg);
+    /* point right */
+}
+
+.isg-acc-panel {
+    margin-top: 8px;
+}
+
+.isg-accordion.isg-closed .isg-acc-panel {
+    display: none;
+}
+
+.ts-acc-controls {
+    margin: 8px 0 12px;
+}
+
+.ts-acc-controls .button+.button {
+    margin-left: 6px;
+}
