@@ -246,6 +246,24 @@ class Selection extends AbstractBlockLayout {
         'class' => 'button red o-icon-undo thematic-clear-child-item',
       ]);
       $form->add($clearChildBtn);
+
+      // Public-facing title overrides (HTML allowed).
+      // New lines will be converted to <br> on render.
+      $itemSetTitleHtml = new HtmlTextarea('o:block[__blockIndex__][o:data][entries][' . $i . '][item_set_title_html]');
+      $itemSetTitleHtml->setLabel($view->translate('Item set title (public, HTML)'));
+      $itemSetTitleHtml->setAttributes(['rows' => 2]);
+      if (isset($existing[$i]['item_set_title_html'])) {
+        $itemSetTitleHtml->setValue((string) $existing[$i]['item_set_title_html']);
+      }
+      $form->add($itemSetTitleHtml);
+
+      $childTitleHtml = new HtmlTextarea('o:block[__blockIndex__][o:data][entries][' . $i . '][child_item_title_html]');
+      $childTitleHtml->setLabel($view->translate('Child item title (public, HTML)'));
+      $childTitleHtml->setAttributes(['rows' => 2]);
+      if (isset($existing[$i]['child_item_title_html'])) {
+        $childTitleHtml->setValue((string) $existing[$i]['child_item_title_html']);
+      }
+      $form->add($childTitleHtml);
     }
 
     // No i18n editor UI (reverted).
@@ -259,6 +277,9 @@ class Selection extends AbstractBlockLayout {
           var $fieldset = $input.closest('.ts-entry');
           var $title = $fieldset.find('input[name$="[child_item_title]"]').first();
           if ($title.length) { $title.val(title || '').trigger('change'); }
+          // Also copy to public-facing HTML textarea if empty (do not override manual edits).
+          var $htmlTa = $fieldset.find('textarea[name$="[child_item_title_html]"]').first();
+          if ($htmlTa.length && !$htmlTa.val()) { $htmlTa.val(title || '').trigger('change'); }
         }
 
         // Clear button: clear hidden id and readonly title.
@@ -267,10 +288,11 @@ class Selection extends AbstractBlockLayout {
           var $fieldset = $(this).closest('.ts-entry');
           $fieldset.find('input[name$="[child_item_id]"]').val('').trigger('change');
           $fieldset.find('input[name$="[child_item_title]"]').val('').trigger('change');
+          $fieldset.find('textarea[name$="[child_item_title_html]"]').val('').trigger('change');
           return false;
         });
 
-        $(document).on('click', '.thematic-select-child-item', function(e){
+  $(document).on('click', '.thematic-select-child-item', function(e){
           e.preventDefault();
           var $btn = $(this);
           var sidebar = $('#select-resource');
@@ -481,8 +503,36 @@ class Selection extends AbstractBlockLayout {
           Omeka.closeSidebar($('#resource-details'));
           return false;
         });
-      })(jQuery);
-    JS);
+
+        // When item set selection changes, copy its title text to the public HTML textarea if empty.
+        $(document).on('change', 'select[name$="[item_set_id]"]', function(){
+          try {
+            var $sel = $(this);
+            var $fs = $sel.closest('.ts-entry');
+            var $ta = $fs.find('textarea[name$="[item_set_title_html]"]').first();
+            if (!$ta.length) return;
+            var label = ($sel.find('option:selected').text() || '').trim();
+            // Options are like "#123 Title"; strip leading id/hash.
+            var title = label.replace(/^#\d+\s*/, '');
+            if (!$ta.val()) { $ta.val(title).trigger('change'); }
+          } catch(ex) { /* ignore */ }
+        });
+
+        // On initial load, fill item set title HTML when empty.
+        $(function(){
+          try {
+            $('select[name$="[item_set_id]"]').each(function(){
+              var $sel = $(this); var $fs = $sel.closest('.ts-entry');
+              var $ta = $fs.find('textarea[name$="[item_set_title_html]"]').first();
+              if (!$ta.length || $ta.val()) return;
+              var label = ($sel.find('option:selected').text() || '').trim();
+              var title = label.replace(/^#\d+\s*/, '');
+              if (title) { $ta.val(title).trigger('change'); }
+            });
+          } catch(ex) { /* ignore */ }
+        });
+  })(jQuery);
+JS);
 
     $html = '';
     $translate = $view->plugin('translate');
@@ -508,6 +558,8 @@ class Selection extends AbstractBlockLayout {
           . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][child_item_clear_button]'))
           . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][child_item_id]'))
         . '</div>'
+        . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][item_set_title_html]')) . '</div>'
+        . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][child_item_title_html]')) . '</div>'
         . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][thumb_asset]')) . '</div>'
         . '<div class="ts-group">' . $view->formRow($form->get('o:block[__blockIndex__][o:data][entries][' . $i . '][thumb_url]')) . '</div>'
         . '</fieldset>';
@@ -557,12 +609,20 @@ class Selection extends AbstractBlockLayout {
           ? trim($row['thumb_url'])
           : '';
         $childId = isset($row['child_item_id']) ? (int) $row['child_item_id'] : 0;
+        $itemSetTitleHtml = isset($row['item_set_title_html']) && is_string($row['item_set_title_html'])
+          ? (string) $row['item_set_title_html']
+          : '';
+        $childItemTitleHtml = isset($row['child_item_title_html']) && is_string($row['child_item_title_html'])
+          ? (string) $row['child_item_title_html']
+          : '';
         if ($setId > 0) {
           $entries[] = [
             'item_set_id' => $setId,
             'child_item_id' => $childId,
             'thumb_asset' => $assetId,
             'thumb_url' => $thumbUrl,
+            'item_set_title_html' => $itemSetTitleHtml,
+            'child_item_title_html' => $childItemTitleHtml,
           ];
         }
       }
@@ -648,6 +708,12 @@ class Selection extends AbstractBlockLayout {
         }
 
         $title = $set->displayTitle(NULL, $valueLang);
+        $titleOverride = isset($row['item_set_title_html']) && is_string($row['item_set_title_html'])
+          ? (string) $row['item_set_title_html']
+          : '';
+        if ($titleOverride !== '') {
+          $titleOverride = str_replace(["\r\n", "\r", "\n"], '<br>', $titleOverride);
+        }
         $desc = $set->displayDescription(NULL, $valueLang);
         if ($maxDesc > 0 && is_string($desc)) {
           $plain = trim(strip_tags($desc));
@@ -667,6 +733,12 @@ class Selection extends AbstractBlockLayout {
         $childTitle = '';
         $childUrl = '';
         $linkUrl = '';
+        $childOverride = isset($row['child_item_title_html']) && is_string($row['child_item_title_html'])
+          ? (string) $row['child_item_title_html']
+          : '';
+        if ($childOverride !== '') {
+          $childOverride = str_replace(["\r\n", "\r", "\n"], '<br>', $childOverride);
+        }
 
         if (!empty($row['child_item_id'])) {
           try {
@@ -701,6 +773,8 @@ class Selection extends AbstractBlockLayout {
           'title' => (string) $title,
           'desc' => (string) $desc,
           'child' => $childTitle,
+          'titleHtml' => ($titleOverride !== '' ? $titleOverride : (string) $title),
+          'childHtml' => ($childOverride !== '' ? $childOverride : (string) $childTitle),
           'childUrl' => $childUrl,
           'url' => $linkUrl,
           'isGroupParent' => FALSE,
@@ -735,6 +809,8 @@ class Selection extends AbstractBlockLayout {
             'title' => $titleFallback,
             'desc' => '',
             'child' => '',
+            'titleHtml' => $titleFallback,
+            'childHtml' => '',
             'childUrl' => '',
             'url' => '/item-set-group/' . $sidFallback,
             'isGroupParent' => TRUE,

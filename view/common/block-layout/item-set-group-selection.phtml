@@ -22,9 +22,11 @@ $hyperlink = $this->plugin('hyperlink');
       <?php
         $res = $it['resource'] ?? null;
         $thumb = (string) ($it['thumb'] ?? '');
-        $title = (string) ($it['title'] ?? '');
+  $title = (string) ($it['title'] ?? '');
+  $titleHtml = isset($it['titleHtml']) ? (string) $it['titleHtml'] : $title;
         $desc = (string) ($it['desc'] ?? '');
-        $child = (string) ($it['child'] ?? '');
+  $child = (string) ($it['child'] ?? '');
+  $childHtml = isset($it['childHtml']) ? (string) $it['childHtml'] : $child;
         $childUrl = (string) ($it['childUrl'] ?? '');
         $url = isset($it['url']) ? (string) $it['url'] : '';
         $parts = [];
@@ -32,8 +34,8 @@ $hyperlink = $this->plugin('hyperlink');
           $attrs = 'class="thumbnail" loading="lazy" decoding="async" alt="" onload="this.parentNode.classList.add(\'is-loaded\')" onerror="this.parentNode.classList.add(\'is-loaded\')"';
           $parts[] = '<span class="thumb-frame"><img src="' . $escape($thumb) . '" ' . $attrs . ' /></span>';
         }
-        if (!empty($this->showTitle) && $title !== '') {
-          $parts[] = '<span class="resource-name">' . $escape($title) . '</span>';
+        if (!empty($this->showTitle) && $titleHtml !== '') {
+          $parts[] = '<span class="resource-name">' . $titleHtml . '</span>';
         }
         if (!$parts) {
           $blank = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
@@ -53,11 +55,11 @@ $hyperlink = $this->plugin('hyperlink');
           <?php else: ?>
             <span class="resource-link"><?php echo $linkContent; ?></span>
           <?php endif; ?>
-          <?php if ($child !== ''): ?>
+          <?php if ($childHtml !== ''): ?>
             <div class="ts-representative-item">
               <?php
                 $iconSvg = '<svg class="ts-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><title>840_ch_f</title><rect width="48" height="48" fill="none"/><circle cx="24" cy="24" r="18" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/><polyline points="16.09 25.49 21.62 31.02 32.91 19.73" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/></svg>';
-                $childLinkContent = $iconSvg . '<span class="ts-representative-item-text">' . $escape($child) . '</span>';
+                $childLinkContent = $iconSvg . '<span class="ts-representative-item-text">' . $childHtml . '</span>';
                 echo $hyperlink->raw($childLinkContent, $childUrl ?: '#', ['class' => 'ts-representative-item-link']);
               ?>
             </div>

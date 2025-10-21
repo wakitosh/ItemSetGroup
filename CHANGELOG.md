@@ -4,6 +4,32 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.2] - 2025-10-21
+
+### Added
+- Selection block: Public-facing HTML title overrides for both Item set and Child item.
+  - New fields in admin: "Item set title (public, HTML)", "Child item title (public, HTML)"
+  - Newlines are converted to <br> on the public side; otherwise HTML is rendered as-is.
+  - Auto-fill: when selecting an Item set or Child item, if the corresponding HTML field is empty, copy the chosen title.
+  - Clear button also clears the child HTML title field.
+- Frontend template updated to prefer the HTML title overrides; falls back to original titles if empty.
+
+### Kept
+- Child item check icon in the selection block remains unchanged.
+
+### 日本語
+
+#### 追加
+- Selection ブロック: 公開用の HTML タイトル上書き（アイテムセット／子アイテム）を実装。
+  - 管理UIに「Item set title (public, HTML)」「Child item title (public, HTML)」を追加。
+  - 公開側では改行のみ <br> に変換し、それ以外の HTML はそのままレンダリング。
+  - 自動複写: アイテムセット／子アイテムを選択した際、該当の HTML フィールドが空ならタイトルを自動入力。
+  - クリア時は子アイテムの HTML タイトルも空にします。
+- フロントテンプレートは HTML タイトルを優先。空のときは従来のタイトルを使用。
+
+#### 維持
+- 子アイテムのチェックアイコンは従来通り表示（変更なし）。
+
 ## [0.2.1] - 2025-10-21
 
 ### Added
