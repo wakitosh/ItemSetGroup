@@ -13,6 +13,10 @@ This project adheres to Keep a Changelog and Semantic Versioning.
   - Persist open/closed state per page and block via localStorage; restores on next visit.
   - Global controls: "Open all" / "Close all" buttons to expand/collapse all sections at once (also persisted).
 
+### Fixed
+- Accordion default stability: On first load when localStorage has no saved state, persist the rendered defaults so Selection 1 stays open and sections do not flip unexpectedly.
+- Per-block scoping for controls and storage: Wrap the block form with a container carrying `data-isg-form` to scope handlers and keys to each block, fixing non-responsive "Open all/Close all" and preventing key collisions (e.g., `isg-admin-acc:page-0:fp-0`).
+
 ### 日本語
 
 #### 追加
@@ -21,6 +25,10 @@ This project adheres to Keep a Changelog and Semantic Versioning.
   - 見出しのボタンをクリック（またはキーボード操作）で開閉できます（aria-expanded を更新）。
   - ページ/ブロック単位で開閉状態を localStorage に保存し、次回表示時に復元します。
   - 「すべて開く」「すべて閉じる」ボタンを追加し、一括で開閉できます（保存も反映）。
+
+#### 修正
+- 既定状態の安定化: localStorage が空の初回表示時に、画面に表示された開閉状態（Selection 1=開）を初期値として保存し、意図しない開閉が発生しないようにしました。
+- ブロック単位のスコープ: 管理フォーム全体をラッパー要素で包み `data-isg-form` を付与。これにより「すべて開く／すべて閉じる」がそのブロックのみに作用し、localStorage のキーもブロックごとに一意になります（`isg-admin-acc:page-0:fp-0` の衝突を解消）。
 
 ## [0.2.2] - 2025-10-21
 

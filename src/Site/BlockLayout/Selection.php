@@ -269,8 +269,9 @@ class Selection extends AbstractBlockLayout {
     // No i18n editor UI (reverted).
     $view->headScript()->appendScript(<<<'JS'
       (function($){
-        if (window.ItemSetGroupPickerInit) return;
-        window.ItemSetGroupPickerInit = true;
+        // Initialize the item/child picker logic once.
+        if (window.ItemSetGroupPickerInit !== true) {
+          window.ItemSetGroupPickerInit = true;
 
         function tsWriteSelection($input, id, title) {
           $input.val(id).trigger('change');
@@ -531,74 +532,167 @@ class Selection extends AbstractBlockLayout {
             });
           } catch(ex) { /* ignore */ }
         });
+        } // end picker init guard
 
-        // Accordion: toggle each Selection section open/closed and persist state per page/block.
+        // Initialize accordion/persistence once per session (separate guard from picker to avoid early-return issues).
+        if (window.ISGAccordionInit === true) return;
+        window.ISGAccordionInit = true;
         $(function(){
-          var $form = $('[data-isg-form="1"]');
-          var pageId = String($form.data('isgPageId') || '0');
-          var blockId = String($form.data('isgBlockId') || '0');
-          var storageKey = 'isg-admin-acc:page-' + pageId + ':block-' + blockId;
-
-          function loadState(){
+          function computeStorageKeys($form){
             try {
-              var raw = localStorage.getItem(storageKey);
-              return raw ? JSON.parse(raw) : {};
+              var pageId = String($form.data('isgPageId') || '0');
+              var blockId = String($form.data('isgBlockId') || '0');
+              var keys = [];
+              // Prefer persisted blockId when available.
+              if (blockId !== '0' && blockId !== '') {
+                keys.push('isg-admin-acc:page-' + pageId + ':block-' + blockId);
+              }
+              // Try to detect a parent container id (e.g., id="block-123" or data-block-id)
+              var $parent = $form.closest('[data-block-id], [data-page-block-id], [id^="block-"]');
+              var altId = '';
+              if ($parent.length) {
+                altId = String($parent.data('blockId') || $parent.data('pageBlockId') || '');
+                if (!altId) {
+                  var pid = String($parent.attr('id') || '');
+                  var m = pid.match(/block-(\d+)/);
+                  if (m) altId = m[1];
+                }
+              }
+              if (altId) {
+                keys.push('isg-admin-acc:page-' + pageId + ':block-' + altId);
+              }
+              // Fallback: hash of field names to distinguish instances in the same page.
+              var names = [];
+              $form.find('input,select,textarea').each(function(){ var n=this.name||''; if(n) names.push(n); });
+              names.sort();
+              var sig = names.join('|');
+              var h=0; for (var i=0;i<sig.length;i++){ h=((h<<5)-h)+sig.charCodeAt(i); h|=0; }
+              var fp = String(Math.abs(h));
+              keys.push('isg-admin-acc:page-' + pageId + ':fp-' + fp);
+              // Add positional index among forms as last fallback to separate identical new blocks.
+              var pos = String($('[data-isg-form="1"]').index($form));
+              if (pos && pos !== '-1') {
+                keys.push('isg-admin-acc:page-' + pageId + ':pos-' + pos);
+              }
+              return keys;
+            } catch(e){ return ['isg-admin-acc:page-0:block-0']; }
+          }
+
+          function loadState(keys){
+            try {
+              var merged = {};
+              for (var i=0;i<keys.length;i++){
+                var raw = localStorage.getItem(keys[i]);
+                if (raw) {
+                  try { var obj = JSON.parse(raw); if (obj && typeof obj === 'object') { Object.assign(merged, obj); } } catch(ex){}
+                }
+              }
+              return merged;
             } catch(e){ return {}; }
           }
-          function saveState(state){
-            try { localStorage.setItem(storageKey, JSON.stringify(state||{})); } catch(e){}
+          function saveState(keys, state){
+            try {
+              for (var i=0;i<keys.length;i++){
+                localStorage.setItem(keys[i], JSON.stringify(state||{}));
+              }
+            } catch(e){}
           }
 
-          // Restore saved state.
-          var state = loadState();
-          $('.isg-accordion[data-acc-index]').each(function(){
-            var $fs = $(this);
-            var idx = String($fs.data('accIndex'));
-            if (state.hasOwnProperty(idx)) {
-              var shouldOpen = !!state[idx];
-              $fs.toggleClass('isg-open', shouldOpen).toggleClass('isg-closed', !shouldOpen);
-              $fs.find('> legend .isg-acc-toggle').attr('aria-expanded', String(shouldOpen));
-            }
+          // Restore for each form instance separately.
+          $('[data-isg-form="1"]').each(function(){
+            var $form = $(this);
+            var keys = computeStorageKeys($form);
+            var state = loadState(keys);
+            var hadAny = false;
+            try { hadAny = Object.keys(state).length > 0; } catch(_e) { hadAny = false; }
+            var changed = false;
+            $form.find('.isg-accordion[data-acc-index]').each(function(){
+              var $fs = $(this);
+              var idx = String($fs.data('accIndex'));
+              if (state.hasOwnProperty(idx)) {
+                var shouldOpen = !!state[idx];
+                $fs.toggleClass('isg-open', shouldOpen).toggleClass('isg-closed', !shouldOpen);
+                $fs.find('> legend .isg-acc-toggle').attr('aria-expanded', String(shouldOpen));
+              } else {
+                // Persist initial default (as rendered) on first load to stabilize
+                // behavior and avoid unintended flips when no state exists.
+                if (!hadAny) {
+                  var defaultOpen = $fs.hasClass('isg-open');
+                  state[idx] = defaultOpen;
+                  changed = true;
+                }
+              }
+            });
+            if (changed) { saveState(keys, state); }
           });
 
-          // Delegate click and persist.
+          // Delegate: toggle one section and persist for its form.
           $(document).on('click', '.isg-acc-toggle', function(){
             var $btn = $(this);
+            var $form = $btn.closest('[data-isg-form="1"]');
+            var keys = computeStorageKeys($form);
             var $fs = $btn.closest('.isg-accordion');
             var open = $fs.hasClass('isg-open');
             var next = !open;
             $fs.toggleClass('isg-open', next).toggleClass('isg-closed', !next);
             $btn.attr('aria-expanded', String(next));
             var idx = String($fs.data('accIndex'));
-            var st = loadState();
+            var st = loadState(keys);
             st[idx] = next;
-            saveState(st);
+            saveState(keys, st);
           });
 
-          function setAll(open){
-            var st = loadState();
-            $('.isg-accordion[data-acc-index]').each(function(){
+          function setAll($form, open){
+            var keys = computeStorageKeys($form);
+            var st = loadState(keys);
+            $form.find('.isg-accordion[data-acc-index]').each(function(){
               var $fs = $(this);
               var idx = String($fs.data('accIndex'));
               $fs.toggleClass('isg-open', open).toggleClass('isg-closed', !open);
               $fs.find('> legend .isg-acc-toggle').attr('aria-expanded', String(open));
               st[idx] = !!open;
             });
-            saveState(st);
+            saveState(keys, st);
           }
 
-          $(document).on('click', '.isg-acc-open-all', function(e){ e.preventDefault(); setAll(true); });
-          $(document).on('click', '.isg-acc-close-all', function(e){ e.preventDefault(); setAll(false); });
-        });
+          $(document).on('click', '.isg-acc-open-all', function(e){ e.preventDefault(); var $f=$(this).closest('[data-isg-form="1"]'); setAll($f, true); });
+          $(document).on('click', '.isg-acc-close-all', function(e){ e.preventDefault(); var $f=$(this).closest('[data-isg-form="1"]'); setAll($f, false); });
+
+          // In case forms are added later, try a delayed restore and a MutationObserver.
+          function restoreAllForms(){
+            $('[data-isg-form="1"]').each(function(){
+              var $form = $(this); var keys = computeStorageKeys($form); var state = loadState(keys);
+              $form.find('.isg-accordion[data-acc-index]').each(function(){
+                var $fs = $(this); var idx = String($fs.data('accIndex'));
+                if (state.hasOwnProperty(idx)) {
+                  var shouldOpen = !!state[idx];
+                  $fs.toggleClass('isg-open', shouldOpen).toggleClass('isg-closed', !shouldOpen);
+                  $fs.find('> legend .isg-acc-toggle').attr('aria-expanded', String(shouldOpen));
+                }
+              });
+            });
+          }
+          setTimeout(restoreAllForms, 200);
+          try {
+            var mo = new MutationObserver(function(){ restoreAllForms(); });
+            mo.observe(document.body, {childList:true, subtree:true});
+          } catch(ex) { /* ignore */ }
+    });
   })(jQuery);
 JS);
 
     $html = '';
     $translate = $view->plugin('translate');
     $escape = $view->plugin('escapeHtml');
-    $html .= '<fieldset class="ts-fieldset ts-global" data-isg-form="1"'
+    // Wrap the whole block form with a single container so that accordion
+    // sections (which are siblings of the global fieldset) can reliably
+    // resolve their closest [data-isg-form="1"] ancestor for scoping and
+    // persistence keys. Previously, data-isg-form was on the global fieldset
+    // only, so sibling selection fieldsets could not find it via .closest().
+    $html .= '<div class="isg-admin-wrapper" data-isg-form="1"'
       . ' data-isg-page-id="' . (int) ($page ? $page->id() : 0) . '"'
       . ' data-isg-block-id="' . (int) ($block ? $block->id() : 0) . '">'
+      . '<fieldset class="ts-fieldset ts-global">'
       . '<legend>' . $escape($translate('Global settings')) . '</legend>'
       . '<div class="ts-group">' . $view->formRow($heading) . '</div>'
       . '<div class="ts-group">' . $view->formRow($desc) . '</div>'
@@ -607,13 +701,12 @@ JS);
       . '<div class="ts-group">' . $view->formRow($moreUrl) . '</div>'
       . '<div class="ts-group">' . $view->formRow($moreText) . '</div>'
       . '<div class="ts-group">' . $view->formRow($descMax) . '</div>'
-      . '</fieldset>';
-
-    // Accordion global controls: Open all / Close all.
-    $html .= '<div class="ts-acc-controls">'
+      // Accordion global controls: Open all / Close all inside the form scope.
+      . '<div class="ts-acc-controls">'
       . '<button type="button" class="button isg-acc-open-all">' . $escape($translate('Open all')) . '</button> '
       . '<button type="button" class="button isg-acc-close-all">' . $escape($translate('Close all')) . '</button>'
-      . '</div>';
+      . '</div>'
+      . '</fieldset>';
 
     for ($i = 0; $i < $max; $i++) {
       $isOpen = ($i === 0);
@@ -639,6 +732,9 @@ JS);
         . '</div>'
         . '</fieldset>';
     }
+
+    // Close wrapper div for this block's admin form.
+    $html .= '</div>';
 
     return $html;
   }
