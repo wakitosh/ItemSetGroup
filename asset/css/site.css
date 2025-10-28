@@ -72,10 +72,10 @@
 }
 
 .ts-preview-block .ts-representative-item-link .ts-icon {
-    width: 1.25em;
-    height: 1.25em;
-    min-width: 1.25em;
-    min-height: 1.25em;
+    width: 1.2em;
+    height: 1.2em;
+    min-width: 1.2em;
+    min-height: 1.2em;
     flex-shrink: 0;
     vertical-align: top;
     margin-right: 2px;
@@ -84,4 +84,9 @@
 .ts-preview-block .ts-representative-item-link .ts-icon circle,
 .ts-preview-block .ts-representative-item-link .ts-icon polyline {
     stroke: currentColor;
+}
+
+/* Ensure new icon path fills inherit the text color */
+.ts-preview-block .ts-representative-item-link .ts-icon path {
+    fill: currentColor;
 }
