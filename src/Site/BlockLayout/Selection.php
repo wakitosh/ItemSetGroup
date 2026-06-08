@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ItemSetGroup\Site\BlockLayout;
 
 use Doctrine\DBAL\Connection;
+use ItemSetGroup\Hierarchy\ItemSetHierarchy;
 use Laminas\Form\Element\Button;
 use Laminas\Form\Element\Checkbox;
 use Laminas\Form\Element\Hidden;
@@ -43,11 +44,19 @@ class Selection extends AbstractBlockLayout {
   protected $connection;
 
   /**
+   * Hierarchy helper.
+   *
+   * @var \ItemSetGroup\Hierarchy\ItemSetHierarchy
+   */
+  protected $hierarchy;
+
+  /**
    * Constructor.
    */
   public function __construct(LaminasFormElementManager $formElementManager, Connection $connection) {
     $this->formElementManager = $formElementManager;
     $this->connection = $connection;
+    $this->hierarchy = new ItemSetHierarchy($connection);
   }
 
   /**
@@ -127,32 +136,22 @@ class Selection extends AbstractBlockLayout {
 
     $existing = $block ? ($block->dataValue('entries') ?: []) : [];
 
-    // Build item set value options once, excluding group-parent item sets
-    // (those that have child item sets pointing via dcterms:isPartOf).
+    // Build item set value options once, excluding only root group item sets.
+    // Intermediate item sets remain selectable so multi-level trees can be
+    // traversed from the admin and public search UI.
     $valueOptions = [];
     $valueOptions[''] = $view->translate('(none)');
-    $parentIds = [];
+    $rootIds = [];
+    $descendantMap = [];
     try {
-      $propId = (int) $this->connection->fetchOne(
-        "SELECT id FROM property WHERE term = 'dcterms:isPartOf'"
-      );
-      if ($propId) {
-        $rows = $this->connection->fetchFirstColumn(
-          "SELECT DISTINCT v.value_resource_id
-           FROM value v
-           INNER JOIN resource r ON r.id = v.resource_id
-           WHERE v.property_id = ?
-             AND v.value_resource_id IS NOT NULL
-             AND r.resource_type = 'Omeka\\\\Entity\\\\ItemSet'",
-          [$propId]
-        );
-        foreach ($rows as $pid) {
-          $parentIds[(int) $pid] = TRUE;
-        }
+      foreach ($this->hierarchy->getRootItemSetIds((int) $site->id(), TRUE) as $rootId) {
+        $rootIds[(int) $rootId] = TRUE;
       }
+      $descendantMap = $this->hierarchy->getDescendantMap((int) $site->id(), TRUE);
     }
     catch (\Throwable $e) {
-      $parentIds = [];
+      $rootIds = [];
+      $descendantMap = [];
     }
 
     try {
@@ -166,7 +165,7 @@ class Selection extends AbstractBlockLayout {
       ])->getContent();
       foreach ($sets as $rep) {
         $sid = (int) $rep->id();
-        if (!isset($parentIds[$sid])) {
+        if (!isset($rootIds[$sid])) {
           try {
             $valueOptions[(string) $sid] = '#' . $sid . ' ' . $rep->displayTitle();
           }
@@ -266,6 +265,17 @@ class Selection extends AbstractBlockLayout {
       $form->add($childTitleHtml);
     }
 
+    $siteKey = json_encode((string) $site->id(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $descendantMapJson = json_encode($descendantMap, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if ($siteKey !== FALSE && $descendantMapJson !== FALSE) {
+      $script = sprintf(
+        'window.ItemSetGroupCurrentSiteId = %1$s;window.ItemSetGroupDescendantMap = window.ItemSetGroupDescendantMap || {};window.ItemSetGroupDescendantMap[%1$s] = %2$s;',
+        $siteKey,
+        $descendantMapJson
+      );
+      $view->headScript()->appendScript($script);
+    }
+
     // No i18n editor UI (reverted).
     $view->headScript()->appendScript(<<<'JS'
       (function($){
@@ -308,36 +318,30 @@ class Selection extends AbstractBlockLayout {
             Omeka.openSidebar(sidebar);
           };
           if (parentVal) {
-            var apiUrl = '/api/item_sets';
-            var q = {
-              'property[0][property]': 'dcterms:isPartOf',
-              'property[0][type]': 'res',
-              'property[0][text]': String(parentVal),
-              'per_page': 1000
-            };
-            $.getJSON(apiUrl, q)
-              .done(function(data){
-                var sep = baseUrl.indexOf('?') === -1 ? '?' : '&';
-                if ($.isArray(data) && data.length > 0) {
-                  var params = [];
-                  // Include the parent set itself as well.
-                  params.push('item_set_id=' + encodeURIComponent(String(parentVal)));
-                  for (var i=0;i<data.length;i++) {
-                    var cid = data[i] && data[i]['o:id'];
-                    if (cid != null) {
-                      params.push('item_set_id=' + encodeURIComponent(String(cid)));
-                    }
-                  }
-                  openWithUrl(baseUrl + sep + params.join('&'));
-                } else {
-                  // No children: filter by the selected set only.
-                  openWithUrl(baseUrl + sep + 'item_set_id=' + encodeURIComponent(String(parentVal)));
-                }
-              })
-              .fail(function(){
-                var sep = baseUrl.indexOf('?') === -1 ? '?' : '&';
-                openWithUrl(baseUrl + sep + 'item_set_id=' + encodeURIComponent(String(parentVal)));
-              });
+            var siteKey = String(window.ItemSetGroupCurrentSiteId || '');
+            var descendantMap = (window.ItemSetGroupDescendantMap && siteKey)
+              ? (window.ItemSetGroupDescendantMap[siteKey] || {})
+              : {};
+            var ids = [String(parentVal)];
+            var descendants = descendantMap[String(parentVal)] || [];
+            for (var i = 0; i < descendants.length; i++) {
+              var cid = descendants[i];
+              if (cid != null) {
+                ids.push(String(cid));
+              }
+            }
+            var seen = {};
+            var params = [];
+            for (var j = 0; j < ids.length; j++) {
+              var id = ids[j];
+              if (!id || seen[id]) {
+                continue;
+              }
+              seen[id] = true;
+              params.push('item_set_id=' + encodeURIComponent(id));
+            }
+            var sep = baseUrl.indexOf('?') === -1 ? '?' : '&';
+            openWithUrl(baseUrl + sep + params.join('&'));
           } else {
             openWithUrl(baseUrl);
           }
@@ -710,7 +714,7 @@ JS);
 
     for ($i = 0; $i < $max; $i++) {
       $isOpen = ($i === 0);
-      $legendText = $escape(sprintf($translate('Selection %d'), $i + 1));
+      $legendText = $escape(sprintf((string) $translate('Selection %d'), $i + 1));
       $panelId = 'isg-acc-panel-__blockIndex__-' . $i;
       $headerId = 'isg-acc-header-__blockIndex__-' . $i;
       $html .= '<fieldset class="ts-fieldset ts-entry isg-accordion ' . ($isOpen ? 'isg-open' : 'isg-closed') . '" data-isg-acc="1" data-acc-index="' . $i . '">'

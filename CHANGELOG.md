@@ -4,6 +4,36 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.4] - 2026-06-08
+
+### Added
+- Lightweight hierarchical item set support for `dcterms:isPartOf` in the Selection block and related filtering logic.
+  - Intermediate item sets (both parent and child) are now treated as selectable/searchable nodes.
+  - Added shared hierarchy helper logic to compute root item sets and descendants.
+
+### Changed
+- Selection block item set candidates now exclude only top-level root groups, not all parent item sets.
+- Child item picker in the Selection block now includes descendant item sets, not only the selected set and its direct children.
+
+### Fixed
+- Public advanced search item set dropdown now excludes only root-level group item sets, with site-aware filtering aligned to the current rendered site.
+- Standard item set browse and groups browse now use the same site-context rule for root exclusion, avoiding mismatches between sites.
+
+### 日本語
+
+#### 追加
+- `dcterms:isPartOf` によるアイテムセット階層を軽量対応しました。
+  - 親でも子でもある中間アイテムセットを、選択・検索対象として扱えるようにしました。
+  - ルート判定と子孫展開のための共通階層ヘルパを追加しました。
+
+#### 変更
+- Selection ブロックのアイテムセット候補では、すべての親セットではなく「最上位ルートの親セット」のみを除外するように変更しました。
+- Selection ブロックの子アイテム選択では、選択中アイテムセット自身と直下の子だけでなく、子孫アイテムセット全体を候補に含めるようにしました。
+
+#### 修正
+- 公開側の詳細検索にあるアイテムセットドロップダウンで、最上位ルートのグループ親だけを除外し、かつ現在サイトの表示文脈に一致するよう補正しました。
+- 通常のアイテムセット一覧とグループ一覧でも、同じ site 文脈でルート除外を行うようにして、サイト間の表示ずれを防ぎました。
+
 ## [0.2.3] - 2025-10-21
 
 ### Added

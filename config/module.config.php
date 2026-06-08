@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use ItemSetGroup\Site\BlockLayout\SelectionFactory as SelectionBlockFactory;
+use ItemSetGroup\View\Helper\ItemSetHierarchyFactory;
 use ItemSetGroup\View\Helper\ItemSetPrimaryThumbFactory;
 
 return [
@@ -103,6 +104,7 @@ return [
   ],
   'view_helpers' => [
     'factories' => [
+      'itemSetHierarchy' => ItemSetHierarchyFactory::class,
       'itemSetPrimaryThumb' => ItemSetPrimaryThumbFactory::class,
     ],
   ],
