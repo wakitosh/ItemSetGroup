@@ -5,9 +5,7 @@ namespace ItemSetGroup;
 use Laminas\Mvc\MvcEvent;
 use Laminas\Validator\ValidatorChain;
 use Laminas\View\Model\ViewModel;
-use Omeka\Api\Adapter\ItemAdapter;
 use Omeka\Api\Adapter\ItemSetAdapter;
-use Omeka\Api\Adapter\MediaAdapter;
 use Omeka\Form\ResourceForm;
 use Omeka\Module\AbstractModule;
 
@@ -377,71 +375,6 @@ class Module extends AbstractModule {
         $this->assignThumbnailFromPrimary($itemSetId, $services);
       }
     }, 60);
-
-    // Auto-register a representative when none exists.
-    //
-    // Item sets are normally created empty, so the item save is what actually
-    // makes a representative available. Deliberate clearing on the item set
-    // edit form is not undone here, because this is not attached to the item
-    // set update event.
-    $autoAssign = function (int $setId) use ($services) {
-      if ($this->autoAssignPrimaryIfMissing($setId, $services)) {
-        $this->assignThumbnailFromPrimary($setId, $services);
-      }
-    };
-
-    $shared->attach(ItemSetAdapter::class, 'api.create.post', function ($e) use ($autoAssign) {
-      $entity = $e->getParam('response')->getContent();
-      $setId = method_exists($entity, 'getId') ? (int) $entity->getId() : 0;
-      $autoAssign($setId);
-    }, 50);
-
-    foreach (['api.create.post', 'api.update.post'] as $itemEvent) {
-      $shared->attach(ItemAdapter::class, $itemEvent, function ($e) use ($autoAssign, $services) {
-        try {
-          $entity = $e->getParam('response')->getContent();
-          $itemId = method_exists($entity, 'getId') ? (int) $entity->getId() : 0;
-          if ($itemId <= 0) {
-            return;
-          }
-          $conn = $services->get('Omeka\\Connection');
-          $setIds = $conn->fetchFirstColumn(
-            'SELECT item_set_id FROM item_item_set WHERE item_id = ?',
-            [$itemId]
-          );
-          foreach ($setIds as $setId) {
-            $autoAssign((int) $setId);
-          }
-        }
-        catch (\Throwable $t) {
-          // Ignore.
-        }
-      }, 50);
-    }
-
-    // Backfill the representative media once an item finally gains one.
-    $shared->attach(MediaAdapter::class, 'api.create.post', function ($e) use ($services) {
-      try {
-        $entity = $e->getParam('response')->getContent();
-        $mediaId = method_exists($entity, 'getId') ? (int) $entity->getId() : 0;
-        if ($mediaId <= 0) {
-          return;
-        }
-        $conn = $services->get('Omeka\\Connection');
-        $itemId = (int) $conn->fetchOne('SELECT item_id FROM media WHERE id = ?', [$mediaId]);
-        if ($itemId <= 0) {
-          return;
-        }
-        $conn->executeStatement(
-          'UPDATE item_set_primary_item SET primary_media_id = ? '
-          . 'WHERE primary_item_id = ? AND primary_media_id IS NULL',
-          [$mediaId, $itemId]
-        );
-      }
-      catch (\Throwable $t) {
-        // Ignore.
-      }
-    }, 50);
 
     // Fallback persist on admin edit POST (when API update is bypassed).
     $eventManager->attach(MvcEvent::EVENT_DISPATCH, function ($e) use ($services, $persist) {
@@ -837,79 +770,6 @@ EOT;
   /**
    * Assign thumbnail from primary item if available and none set yet.
    */
-  /**
-   * Register a representative item/media when the item set has none.
-   *
-   * Uses the same rule as the display-time fallback in ItemSetPrimaryThumb:
-   * the oldest item in the set, then that item's primary media. An existing
-   * registration is never overwritten, so manual choices are preserved.
-   *
-   * @param int $itemSetId
-   *   Target item set.
-   * @param mixed $services
-   *   Service locator.
-   *
-   * @return bool
-   *   TRUE when a representative was newly registered.
-   */
-  protected function autoAssignPrimaryIfMissing(int $itemSetId, $services): bool {
-    if ($itemSetId <= 0) {
-      return FALSE;
-    }
-    try {
-      $conn = $services->get('Omeka\\Connection');
-
-      // Preserve any existing registration, manual or automatic.
-      $existing = (int) $conn->fetchOne(
-        'SELECT primary_item_id FROM item_set_primary_item WHERE item_set_id = ?',
-        [$itemSetId]
-      );
-      if ($existing > 0) {
-        return FALSE;
-      }
-
-      // Oldest item in the set (mirrors sort_by=created, sort_order=asc).
-      $pid = (int) $conn->fetchOne(
-        'SELECT i.id FROM item i '
-        . 'INNER JOIN item_item_set iis ON iis.item_id = i.id '
-        . 'INNER JOIN resource r ON r.id = i.id '
-        . 'WHERE iis.item_set_id = ? '
-        . 'ORDER BY r.created ASC, i.id ASC LIMIT 1',
-        [$itemSetId]
-      );
-      if ($pid <= 0) {
-        // Set is still empty; a later item save retriggers this.
-        return FALSE;
-      }
-
-      // The item's primary media, mirroring Omeka's Item::primaryMedia().
-      $mid = 0;
-      try {
-        $mid = (int) $conn->fetchOne('SELECT primary_media_id FROM item WHERE id = ?', [$pid]);
-      }
-      catch (\Throwable $noColumn) {
-        $mid = 0;
-      }
-      if ($mid <= 0) {
-        $mid = (int) $conn->fetchOne(
-          'SELECT id FROM media WHERE item_id = ? ORDER BY position ASC, id ASC LIMIT 1',
-          [$pid]
-        );
-      }
-
-      $conn->executeStatement(
-        'INSERT INTO item_set_primary_item (item_set_id, primary_item_id, primary_media_id) VALUES (?, ?, ?) '
-        . 'ON DUPLICATE KEY UPDATE primary_item_id = VALUES(primary_item_id), primary_media_id = VALUES(primary_media_id)',
-        [$itemSetId, $pid, $mid > 0 ? $mid : NULL]
-      );
-      return TRUE;
-    }
-    catch (\Throwable $t) {
-      // Auto-assignment must never break a save.
-      return FALSE;
-    }
-  }
-
   protected function assignThumbnailFromPrimary($itemSetOrId, $services): void { // phpcs:ignore
     static $reenter = FALSE;
     if ($reenter) {

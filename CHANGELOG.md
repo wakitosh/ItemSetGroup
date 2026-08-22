@@ -4,6 +4,36 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.5] - 2026-08-22
+
+### Added
+- Automatic registration of an item set's representative item and media when none is set yet.
+  - Triggered on item set creation, item creation/update, and media creation. Because item sets are normally created empty, the item save is the point at which a representative first becomes available.
+  - Uses the same selection rule as the display-time fallback in `ItemSetPrimaryThumb`: the oldest item in the set (`created` ascending), then that item's primary media.
+  - Existing registrations are never overwritten, so manual choices are preserved.
+  - Failures are swallowed so that automatic registration can never break a save.
+
+### Changed
+- Item set pages and Selection blocks no longer depend on the render-time fallback for sets that have a registered representative. Resolving a representative at render time loads every item in the set through the ORM, which was the dominant cost on pages showing several large item sets.
+
+### Notes
+- Clearing the representative on the item set edit form is not permanent: a later save of an item belonging to that set registers one again. There is currently no way to record "deliberately no representative".
+
+### 日本語
+
+#### 追加
+- アイテムセットの代表アイテム・代表メディアが未登録の場合に、自動で登録するようにしました。
+  - アイテムセット作成時、アイテム作成・更新時、メディア作成時に動作します。アイテムセットは通常空の状態で作成されるため、実質的にはアイテム保存時が主な契機となります。
+  - 選定規則は表示時のフォールバック（`ItemSetPrimaryThumb`）と同一です。セット内で最も古いアイテム（`created` 昇順）を選び、そのアイテムの代表メディアを用います。
+  - 既存の登録は上書きしません。手動で設定した内容は保持されます。
+  - 例外は握りつぶすため、自動登録の失敗が保存処理を妨げることはありません。
+
+#### 変更
+- 代表が登録済みのアイテムセットについて、描画時のフォールバック処理を経由しなくなりました。描画時に代表を解決する処理はセット内の全アイテムをORMで実体化するため、大きなアイテムセットを複数表示するページでは主要な処理コストとなっていました。
+
+#### 備考
+- アイテムセット編集画面で代表を空にしても永続しません。そのセットに属するアイテムが以後保存された時点で再び自動登録されます。「意図的に代表なし」を記録する手段は現時点ではありません。
+
 ## [0.2.4] - 2026-06-08
 
 ### Added
