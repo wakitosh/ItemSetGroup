@@ -4,6 +4,28 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.6] - 2026-11-05
+
+### Security
+- Escape item set and item titles in the Selection block. A title is plain text, but it was printed as markup when no override was set, so a title containing HTML ran in the page. The title override fields remain markup.
+- Accept only `http`, `https` and relative URLs for the block's "more" link. A `javascript:` URL could be stored and rendered as a link. The check applies when saving and when rendering, so existing blocks are covered.
+- Purify the block description and the title override fields on save, through Omeka's HTML purifier, as the core HTML block does.
+
+### Notes
+- Purification follows the global setting `use_htmlpurifier`. While it is off, these fields are stored as entered, as they are for core HTML blocks.
+- Purification applies when a block is saved. Existing blocks are cleaned the next time they are saved.
+
+### 日本語
+
+#### セキュリティ
+- Selectionブロックのアイテムセット名・アイテム名をエスケープするようにしました。タイトルはプレーンテキストですが、上書き指定がない場合にマークアップとして出力していたため、HTMLを含むタイトルがページ内で動作していました。タイトル上書き欄は引き続きマークアップとして扱います。
+- ブロックの「もっと見る」リンクに `http`、`https`、相対URLのみを受け付けるようにしました。`javascript:` のURLを保存でき、リンクとして出力されていました。保存時と表示時の両方で判定するため、既存のブロックにも適用されます。
+- ブロックの説明文とタイトル上書き欄を、保存時にOmekaのHTMLピュリファイアで処理するようにしました。コアのHTMLブロックと同じ動作です。
+
+#### 補足
+- ピュリファイアの処理はグローバル設定 `use_htmlpurifier` に従います。無効の場合、コアのHTMLブロックと同様に入力どおり保存します。
+- ピュリファイアの処理はブロックの保存時に行います。既存のブロックは次回の保存時に処理されます。
+
 ## [0.2.5] - 2026-08-22
 
 ### Added

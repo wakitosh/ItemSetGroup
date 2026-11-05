@@ -23,6 +23,7 @@ use Omeka\Form\Element\HtmlTextarea;
 
 use Omeka\Site\BlockLayout\AbstractBlockLayout;
 use Omeka\Stdlib\ErrorStore;
+use Omeka\Stdlib\HtmlPurifier;
 
 /**
  * Block layout for selecting and displaying item set groups.
@@ -51,11 +52,19 @@ class Selection extends AbstractBlockLayout {
   protected $hierarchy;
 
   /**
+   * HTML purifier.
+   *
+   * @var \Omeka\Stdlib\HtmlPurifier
+   */
+  protected $htmlPurifier;
+
+  /**
    * Constructor.
    */
-  public function __construct(LaminasFormElementManager $formElementManager, Connection $connection) {
+  public function __construct(LaminasFormElementManager $formElementManager, Connection $connection, HtmlPurifier $htmlPurifier) {
     $this->formElementManager = $formElementManager;
     $this->connection = $connection;
+    $this->htmlPurifier = $htmlPurifier;
     $this->hierarchy = new ItemSetHierarchy($connection);
   }
 
@@ -759,11 +768,11 @@ JS);
       ? trim($data['heading'])
       : '';
     $data['description'] = isset($data['description']) && is_string($data['description'])
-      ? $data['description']
+      ? $this->htmlPurifier->purify($data['description'])
       : '';
     // No i18n maps (reverted to single fields for heading/description).
     $data['more_url'] = isset($data['more_url']) && is_string($data['more_url'])
-      ? trim($data['more_url'])
+      ? $this->safeLinkUrl($data['more_url'])
       : '';
     $data['more_text'] = isset($data['more_text']) && is_string($data['more_text'])
       ? trim($data['more_text'])
@@ -785,10 +794,10 @@ JS);
           : '';
         $childId = isset($row['child_item_id']) ? (int) $row['child_item_id'] : 0;
         $itemSetTitleHtml = isset($row['item_set_title_html']) && is_string($row['item_set_title_html'])
-          ? (string) $row['item_set_title_html']
+          ? $this->htmlPurifier->purify((string) $row['item_set_title_html'])
           : '';
         $childItemTitleHtml = isset($row['child_item_title_html']) && is_string($row['child_item_title_html'])
-          ? (string) $row['child_item_title_html']
+          ? $this->htmlPurifier->purify((string) $row['child_item_title_html'])
           : '';
         if ($setId > 0) {
           $entries[] = [
@@ -948,8 +957,9 @@ JS);
           'title' => (string) $title,
           'desc' => (string) $desc,
           'child' => $childTitle,
-          'titleHtml' => ($titleOverride !== '' ? $titleOverride : (string) $title),
-          'childHtml' => ($childOverride !== '' ? $childOverride : (string) $childTitle),
+          // An override is markup from the block form; a title is plain text.
+          'titleHtml' => ($titleOverride !== '' ? $titleOverride : $view->escapeHtml((string) $title)),
+          'childHtml' => ($childOverride !== '' ? $childOverride : $view->escapeHtml((string) $childTitle)),
           'childUrl' => $childUrl,
           'url' => $linkUrl,
           'isGroupParent' => FALSE,
@@ -984,7 +994,7 @@ JS);
             'title' => $titleFallback,
             'desc' => '',
             'child' => '',
-            'titleHtml' => $titleFallback,
+            'titleHtml' => $view->escapeHtml($titleFallback),
             'childHtml' => '',
             'childUrl' => '',
             'url' => '/item-set-group/' . $sidFallback,
@@ -994,7 +1004,7 @@ JS);
       }
     }
 
-    $moreUrl = (string) $block->dataValue('more_url', '');
+    $moreUrl = $this->safeLinkUrl((string) $block->dataValue('more_url', ''));
     $moreText = (string) $block->dataValue('more_text', '');
     if ($moreUrl !== '' && $moreText === '') {
       $isJa = (strpos(strtolower($lang), 'ja') === 0);
@@ -1010,6 +1020,28 @@ JS);
       'showDesc' => $showDesc,
       'items' => $items,
     ]);
+  }
+
+  /**
+   * Keep a configured link only if following it cannot run script.
+   *
+   * Browsers skip control characters and spaces while reading a URL scheme, so
+   * those are removed before looking at it.
+   *
+   * @param string $url
+   *   Configured URL.
+   *
+   * @return string
+   *   The trimmed URL, or an empty string when its scheme is not http(s).
+   */
+  protected function safeLinkUrl(string $url): string {
+    $url = trim($url);
+    $compact = (string) preg_replace('/[\x00-\x20\x7F]+/', '', $url);
+    if (preg_match('/^([a-z][a-z0-9+.-]*):/i', $compact, $match)
+      && !in_array(strtolower($match[1]), ['http', 'https'], TRUE)) {
+      return '';
+    }
+    return $url;
   }
 
   /**
