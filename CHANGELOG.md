@@ -4,6 +4,18 @@ All notable changes to ItemSetGroup will be documented in this file.
 
 This project adheres to Keep a Changelog and Semantic Versioning.
 
+## [0.2.7] - 2026-11-05
+
+### Security
+- The Selection block no longer reveals item sets the visitor cannot read. When an item set could not be read, the block fell back to the title stored in the database, which showed the title of a private item set to anonymous visitors. Such a set is now left out of the block.
+- Remove the listener that saved the representative item before the controller ran. It wrote to the database ahead of the CSRF check and the per-item-set permission check, so a user able to edit some item sets could change the representative of any of them. The API update event, which runs after those checks, already saves these fields.
+
+### 日本語
+
+#### セキュリティ
+- Selectionブロックが、閲覧権限のないアイテムセットの情報を表示しないようにしました。読み取れないアイテムセットについてデータベースのタイトルを代わりに表示していたため、非公開アイテムセットのタイトルが匿名の訪問者に見えていました。該当するセットはブロックに表示しません。
+- コントローラの実行前に代表アイテムを保存していたリスナーを削除しました。CSRF検証とアイテムセットごとの権限確認より先にデータベースへ書き込んでいたため、一部のアイテムセットを編集できる利用者が、任意のアイテムセットの代表を変更できました。これらの項目は、確認の後に動作するAPI更新イベントが既に保存しています。
+
 ## [0.2.6] - 2026-11-05
 
 ### Security

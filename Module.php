@@ -443,61 +443,6 @@ class Module extends AbstractModule {
       }
     }, 50);
 
-    // Fallback persist on admin edit POST (when API update is bypassed).
-    $eventManager->attach(MvcEvent::EVENT_DISPATCH, function ($e) use ($services, $persist) {
-      $rm = $e->getRouteMatch();
-      $req = $e->getRequest();
-      if (!$rm || !$req || !$req->isPost()) {
-        return;
-      }
-      $controller = (string) $rm->getParam('controller');
-      $action = (string) $rm->getParam('action');
-      if ($controller !== 'Omeka\\Controller\\Admin\\ItemSet' || $action !== 'edit') {
-        return;
-      }
-      try {
-        $itemSetId = (int) $rm->getParam('id');
-        if ($itemSetId <= 0) {
-          return;
-        }
-        $post = $req->getPost();
-        $pid = (int) ($post['primary_item_id'] ?? 0);
-        $mid = (int) ($post['primary_media_id'] ?? 0);
-        // If primary_item_id field is present and empty, clear DB link.
-        if (array_key_exists('primary_item_id', $post->toArray()) && $pid <= 0) {
-          try {
-            $conn = $services->get('Omeka\\Connection');
-            $conn->executeStatement('DELETE FROM item_set_primary_item WHERE item_set_id = ?', [$itemSetId]);
-          }
-          catch (\Throwable $t) {
-            // Ignore.
-          }
-          return;
-        }
-        if ($pid > 0 || array_key_exists('primary_media_id', $post->toArray())) {
-          if ($pid <= 0) {
-            try {
-              $conn = $services->get('Omeka\\Connection');
-              $existingPid = (int) $conn->fetchOne('SELECT primary_item_id FROM item_set_primary_item WHERE item_set_id = ?', [$itemSetId]);
-              if ($existingPid > 0) {
-                $pid = $existingPid;
-              }
-            }
-            catch (\Throwable $t) {
-              // Ignore.
-            }
-          }
-          if ($pid > 0) {
-            $persist($itemSetId, $pid, $mid);
-            $this->assignThumbnailFromPrimary($itemSetId, $services);
-          }
-        }
-      }
-      catch (\Throwable $t) {
-        // Ignore.
-      }
-    }, 5);
-
     // Ensure fields are visibly rendered on the Advanced tab (edit).
     $shared->attach('Omeka\\Controller\\Admin\\ItemSet', 'view.edit.form.advanced', function ($e) use ($services) { // phpcs:ignore
       $vars = $e->getParams();

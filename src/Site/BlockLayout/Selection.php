@@ -972,13 +972,18 @@ JS);
         if ($sidFallback > 0) {
           $titleFallback = '#' . $sidFallback;
           try {
-            $t = (string) $this->connection->fetchOne('SELECT title FROM resource WHERE id = ?', [$sidFallback]);
-            if ($t !== '') {
-              $titleFallback = $t;
+            // Not going through the API, so the visibility rule is applied
+            // here. A set the visitor may not read leaves no trace in the page.
+            $t = $this->connection->fetchOne('SELECT title FROM resource WHERE id = ? AND is_public = 1', [$sidFallback]);
+            if ($t === FALSE) {
+              continue;
+            }
+            if ((string) $t !== '') {
+              $titleFallback = (string) $t;
             }
           }
           catch (\Throwable $e2) {
-            // Ignore.
+            continue;
           }
           $thumbFallback = '';
           try {
